@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DEE LP/UP Final Score Calculator</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    h1 { text-align: center; color: #2E86C1; }
+    label { display: block; margin-top: 10px; font-weight: bold; }
+    input, select { width: 100%; padding: 8px; margin-top: 5px; }
+    button { margin-top: 15px; padding: 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; width: 100%; }
+    .result { margin-top: 20px; padding: 10px; background: #f2f2f2; border-left: 5px solid #4CAF50; }
+    .upload-section { margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px; }
+    .download-btn { margin-top: 10px; background-color: #3498DB; }
+  </style>
+</head>
+<body>
+  <h1>Axom Exam Yatra</h1>
+  <h2>DEE LP/UP Final Score Calculator</h2>
+
+  <!-- ... Existing calculator code remains unchanged ... -->
+
+  <div class="upload-section">
+    <h2>Compare Provisional and Final Lists</h2>
+    <label for="provList">Upload Provisional List (CSV):</label>
+    <input type="file" id="provList" accept=".csv">
+
+    <label for="finalList">Upload Final List (CSV):</label>
+    <input type="file" id="finalList" accept=".csv">
+
+    <button onclick="compareLists()">Compare Lists</button>
+    <button class="download-btn" onclick="downloadSelected()">Download Selected List</button>
+    <button class="download-btn" onclick="downloadRejected()">Download Rejected List</button>
+    <div class="result" id="comparisonResult"></div>
+  </div>
+
+  <script>
+    let provisionalNames = [];
+    let finalNames = [];
+    let rejectedNames = [];
+    let selectedNames = [];
+
+    function calculateScore() {
+      const postType = document.getElementById("postType").value;
+      const name = document.getElementById("name").value;
+      const hs = parseFloat(document.getElementById("hs").value);
+      const grad = parseFloat(document.getElementById("grad").value || 0);
+      const prof = parseFloat(document.getElementById("prof").value);
+      const tet = parseFloat(document.getElementById("tet").value);
+      const bonus = parseFloat(document.getElementById("bonus").value);
+
+      if ([hs, prof, tet, bonus].some(isNaN) || hs > 100 || prof > 100 || tet > 100 || bonus > 5 || bonus < 0 || (postType === "UP" && (isNaN(grad) || grad > 100))) {
+        alert("Please enter valid values. Percentages must be between 0–100 and bonus between 0–5.");
+        return;
+      }
+
+      let hsWeight = 0.05 * hs;
+      let gradWeight = postType === "UP" ? 0.05 * grad : 0;
+      let profWeight = 0.05 * prof;
+      let tetWeight = postType === "UP" ? 0.80 * tet : 0.85 * tet;
+      let final = hsWeight + gradWeight + profWeight + tetWeight + bonus;
+
+      document.getElementById("output").style.display = "block";
+      document.getElementById("output").innerHTML = `
+        <strong>${name}</strong><br>
+        Post: ${postType}<br>
+        HS (5%): ${hsWeight.toFixed(2)}<br>
+        ${postType === "UP" ? `Graduation (5%): ${gradWeight.toFixed(2)}<br>` : ""}
+        DElEd/B.Ed (5%): ${profWeight.toFixed(2)}<br>
+        TET (${postType === "UP" ? "80" : "85"}%): ${tetWeight.toFixed(2)}<br>
+        Bonus Marks (Sports/Culture/NCC): ${bonus.toFixed(2)}<br>
+        <hr>
+        <strong>Final Score: ${final.toFixed(2)}%</strong>
+      `;
+    }
+
+    function readCSV(file, callback) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const rows = e.target.result.split("\n").map(line => line.trim()).filter(line => line);
+        const names = rows.map(r => r.split(",")[0].toLowerCase());
+        callback(names);
+      };
+      reader.readAsText(file);
+    }
+
+    function compareLists() {
+      const provFile = document.getElementById("provList").files[0];
+      const finalFile = document.getElementById("finalList").files[0];
+
+      if (!provFile || !finalFile) {
+        alert("Please upload both CSV files.");
+        return;
+      }
+
+      readCSV(provFile, function(provData) {
+        provisionalNames = provData;
+        readCSV(finalFile, function(finalData) {
+          finalNames = finalData;
+
+          selectedNames = provisionalNames.filter(name => finalNames.includes(name));
+          rejectedNames = provisionalNames.filter(name => !finalNames.includes(name));
+
+          let resultHTML = `✅ Selected (${selectedNames.length}):<br>` + selectedNames.join("<br>") + "<br><hr>";
+          resultHTML += `❌ Rejected (${rejectedNames.length}):<br>` + rejectedNames.join("<br>");
+
+          document.getElementById("comparisonResult").innerHTML = resultHTML;
+        });
+      });
+    }
+
+    function downloadRejected() {
+      if (rejectedNames.length === 0) {
+        alert("No rejected names to download or comparison not yet done.");
+        return;
+      }
+      const blob = new Blob([rejectedNames.join("\n")], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "rejected_candidates.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function downloadSelected() {
+      if (selectedNames.length === 0) {
+        alert("No selected names to download or comparison not yet done.");
+        return;
+      }
+      const blob = new Blob([selectedNames.join("\n")], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "selected_candidates.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    document.addEventListener("contextmenu", event => event.preventDefault());
+    document.onkeydown = function(e) {
+      if (e.ctrlKey && (e.key === 'u' || e.key === 'U' || e.key === 's' || e.key === 'S')) return false;
+      if (e.key === 'F12') return false;
+    };
+  </script>
+</body>
+</html>
